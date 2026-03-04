@@ -1,0 +1,16 @@
+{
+    "automappingRulesFile": "",
+    "commands": [
+    ],
+    "compatibilityVersion": 1100,
+    "extensionsPath": "extensions",
+    "folders": [
+        ".",
+        "kenney_new-platformer-pack-1.1",
+        "kenney_new-platformer-pack-1.1/Sprites/Tiles/Default"
+    ],
+    "properties": [
+    ],
+    "propertyTypes": [
+    ]
+}

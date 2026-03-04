@@ -1,0 +1,288 @@
+:root {
+  /* DIMENSIONS */
+  --cell: 50px;
+  --gap: 12px;
+  --step: 62px; /* 50px cell + 12px gap */
+  
+  /* COLORS: DARK THEME */
+  --bg-app: #0f172a;        /* Deep Blue/Black Background */
+  --bg-board: #1e293b;      /* Dark Grey Board */
+  --bg-cell: #334155;       /* Cell Color */
+  --bg-cell-hover: #475569; /* Hover Grey */
+  --text: #f8fafc;          /* White Text */
+  
+  /* WINDOWS 7 GLASS HIGHLIGHTS (Defaults, overridden by JS) */
+  --highlight-color: #3b82f6; /* Default Blue */
+  --active-glow: rgba(255, 255, 255, 0.1); /* Current Player Glow */
+}
+
+/* --- 1. GLOBAL RESET & LAYOUT --- */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--bg-app);
+  color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden; /* Prevent scrolling */
+}
+
+.app-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  justify-content: center;
+  align-items: center;
+  gap: 50px; /* Space between board and players */
+}
+
+.center-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 10;
+}
+
+/* --- 2. GAME BOARD --- */
+.game-board {
+  position: relative;
+  width: 546px; /* Calculated: (9*50) + (8*12) + Padding/Borders */
+  height: 546px;
+  display: grid;
+  grid-template-columns: repeat(9, 50px);
+  gap: 12px;
+  
+  background-color: var(--bg-board);
+  padding: 25px;
+  border-radius: 16px;
+  border: 4px solid #334155;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+}
+
+/* --- 3. TILES (CELLS) --- */
+.cell {
+  width: 50px;
+  height: 50px;
+  background-color: var(--bg-cell);
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  position: relative; /* Context for overlays */
+  overflow: hidden;   /* Keeps glass effect inside rounded corners */
+}
+
+/* Hover effect on empty cells */
+.cell:not(.valid-move):not(.current-pos):hover {
+  background-color: var(--bg-cell-hover);
+}
+
+/* --- 4. MOVE HIGHLIGHTS (Windows 7 Style) --- */
+
+/* Current Player's Position (White Glow) */
+.cell.current-pos {
+  background-color: var(--active-glow);
+  box-shadow: inset 0 0 15px rgba(255,255,255,0.1);
+  border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Valid Move Target (Dynamic Colored Glass) */
+.cell.valid-move {
+  cursor: pointer;
+  /* Use the color passed from JS, with low opacity for background */
+  background-color: color-mix(in srgb, var(--highlight-color), transparent 85%);
+}
+
+.glass-overlay {
+  position: absolute;
+  top: 0; left: 0; 
+  width: 100%; height: 100%;
+  
+  /* Dynamic Gradient based on Player Color */
+  background: radial-gradient(circle, color-mix(in srgb, var(--highlight-color), transparent 60%) 0%, transparent 80%);
+  border: 2px solid var(--highlight-color); /* Solid border of player color */
+  border-radius: 8px;
+  box-sizing: border-box;
+  opacity: 0.7;
+  
+  /* Pulse Animation */
+  animation: glassPulse 2s infinite;
+}
+
+.cell.valid-move:hover .glass-overlay {
+  background-color: color-mix(in srgb, var(--highlight-color), transparent 70%);
+  opacity: 1;
+}
+
+@keyframes glassPulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--highlight-color), transparent 60%); }
+  70% { box-shadow: 0 0 0 6px rgba(0,0,0,0); }
+  100% { box-shadow: 0 0 0 0 rgba(0,0,0,0); }
+}
+
+/* --- 5. WALLS (Pill Shape) --- */
+.wall {
+  position: absolute;
+  border-radius: 12px; /* The Pill Shape */
+  z-index: 20;
+  pointer-events: none; /* Clicks pass through to triggers */
+  box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+  transform: translate(25px, 25px); /* Offset for board padding */
+}
+
+/* Wall Dimensions (Thicker than gap for solid look) */
+/* H-Wall = 2 Cells(100) + 1 Gap(12) + Overlap(4) = 116px */
+.wall.h { width: 116px; height: 16px; }
+.wall.v { width: 16px; height: 116px; }
+
+/* Ghost Wall (Preview) */
+.wall.ghost {
+  opacity: 0.5;
+  z-index: 30;
+  box-shadow: none;
+}
+
+/* --- 6. INVISIBLE TRIGGERS (Click Zones) --- */
+.trigger {
+  position: absolute;
+  z-index: 40; /* Sit above everything */
+  cursor: pointer;
+  transform: translate(25px, 25px);
+  /* background: rgba(255, 0, 0, 0.2); <--- Uncomment for Debugging */
+}
+
+/* Hitboxes are slightly larger than walls to make clicking easy */
+.trigger.h { width: 112px; height: 24px; margin-top: -4px; }
+.trigger.v { width: 24px; height: 112px; margin-left: -4px; }
+
+/* --- 7. PLAYERS (Tokens) --- */
+.player-token {
+  position: absolute;
+  width: 50px; 
+  height: 50px;
+  padding: 8px; /* Inner padding for avatar */
+  box-sizing: border-box;
+  transform: translate(25px, 25px);
+  pointer-events: none;
+  z-index: 50;
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy move */
+}
+
+.token-inner {
+  width: 100%; 
+  height: 100%;
+  border-radius: 50%;
+  display: flex; 
+  justify-content: center; 
+  align-items: center;
+  font-size: 24px;
+  box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+  border: 2px solid rgba(255,255,255,0.2);
+  background-color: #3b82f6; /* Fallback color */
+}
+
+/* --- 8. UI CARDS (Player Stats) --- */
+.player-card {
+  background: var(--bg-board);
+  width: 220px;
+  padding: 25px;
+  border-radius: 20px;
+  border: 1px solid #334155;
+  display: flex; 
+  flex-direction: column; 
+  align-items: center;
+  text-align: center;
+  transition: transform 0.3s ease;
+}
+
+.player-card.active {
+  border-color: #3b82f6;
+  box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
+  transform: scale(1.05);
+}
+
+.avatar {
+  width: 70px; height: 70px;
+  border-radius: 50%;
+  display: flex; justify-content: center; align-items: center;
+  font-size: 35px;
+  background: var(--bg-app);
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+  margin-bottom: 10px;
+}
+
+.stat-badge {
+  background: var(--bg-app);
+  padding: 8px 16px;
+  border-radius: 12px;
+  color: #94a3b8;
+  font-weight: bold;
+  font-size: 0.9rem;
+  border: 1px solid #334155;
+  min-width: 50px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* --- 9. START OVERLAY --- */
+.start-overlay {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex; 
+  flex-direction: column; 
+  justify-content: center; 
+  align-items: center;
+  z-index: 100;
+  border-radius: 16px;
+}
+
+.logo {
+  font-size: 3.5rem;
+  letter-spacing: 8px;
+  color: #fff;
+  margin-bottom: 30px;
+  font-weight: 900;
+  text-transform: uppercase;
+  text-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
+}
+
+.start-btn {
+  padding: 16px 50px;
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 0 20px rgba(59, 130, 246, 0.4);
+  transition: transform 0.2s;
+}
+
+.start-btn:hover {
+  transform: scale(1.05);
+  background: #2563eb;
+}
+
+.name-input {
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid #334155;
+  color: white;
+  font-size: 1.5rem;
+  font-weight: bold;
+  text-align: center;
+  width: 100%;
+  margin-bottom: 10px;
+  outline: none;
+  transition: border-color 0.2s;
+  font-family: inherit;
+}
+
+.name-input:focus {
+  border-bottom-color: #3b82f6;
+}
